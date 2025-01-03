@@ -1,19 +1,20 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Premium Gmail Notifier",
   "description": "Notifies you of new Gmail messages with rich features.",
   "version": "1.0",
   "permissions": [
     "identity",
-    "https://www.googleapis.com/*",
     "notifications",
     "storage"
   ],
+  "host_permissions": [
+    "https://www.googleapis.com/*"
+  ],
   "background": {
-    "scripts": ["background.js"],
-    "persistent": false
+    "service_worker": "background.js"
   },
-  "browser_action": {
+  "action": {
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -32,5 +33,7 @@
       "https://www.googleapis.com/auth/gmail.readonly"
     ]
   },
-  "content_security_policy": "script-src 'self'; object-src 'self';"
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
 }
