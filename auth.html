@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Authentication</title>
+</head>
+<body>
+    <script>
+        // The OAuth2 flow will redirect here, handling the token
+        chrome.identity.getAuthToken({ interactive: true }, function (token) {
+            if (chrome.runtime.lastError || !token) {
+                console.error("Failed to get auth token", chrome.runtime.lastError);
+                alert("OAuth failed!");
+                return;
+            }
+
+            // Send the token to the background script to store it
+            chrome.runtime.sendMessage({ token: token });
+            window.close(); // Close the authentication window
+        });
+    </script>
+</body>
+</html>
