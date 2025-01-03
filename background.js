@@ -4,16 +4,33 @@ const SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
 
 let currentToken = null;
 
+// Load the Google API Client Library
+function loadGapi(callback) {
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = () => {
+        gapi.load('client:auth2', callback);
+    };
+    document.head.appendChild(script);
+}
+
 // Initialize the Google API Client
-function loadGmailApi() {
-    gapi.client.setApiKey(API_KEY);
-    return gapi.client.load('https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest');
+function initGapi() {
+    return gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        scope: SCOPES
+    }).then(() => {
+        console.log("Google API Client Initialized");
+    }).catch((error) => {
+        console.error("Error initializing GAPI:", error);
+    });
 }
 
 // OAuth authentication flow
 function authenticate() {
     return new Promise((resolve, reject) => {
-        chrome.identity.getAuthToken({ interactive: true }, function (token) {
+        chrome.identity.getAuthToken({ interactive: true }, (token) => {
             if (chrome.runtime.lastError || !token) {
                 reject("Authentication failed");
             } else {
@@ -28,20 +45,18 @@ function authenticate() {
 // Fetch unread emails
 function checkForNewEmails() {
     if (!currentToken) {
-        console.log("User is not authenticated");
+        console.error("User is not authenticated");
         return;
     }
 
-    const request = gapi.client.gmail.users.messages.list({
+    gapi.client.gmail.users.messages.list({
         userId: 'me',
-        q: 'is:unread', // Query for unread emails
-        maxResults: 5    // Limit to 5 unread emails
-    });
-
-    request.execute(function (response) {
-        if (response.messages && response.messages.length > 0) {
-            let messageCount = response.messages.length;
-            // Send notification to the extension
+        q: 'is:unread',
+        maxResults: 5
+    }).then((response) => {
+        const messages = response.result.messages || [];
+        if (messages.length > 0) {
+            const messageCount = messages.length;
             chrome.notifications.create({
                 type: 'basic',
                 iconUrl: 'icons/icon48.png',
@@ -49,12 +64,16 @@ function checkForNewEmails() {
                 message: `You have ${messageCount} unread email(s).`,
                 priority: 2
             });
+        } else {
+            console.log("No new unread emails.");
         }
+    }).catch((error) => {
+        console.error("Error fetching unread emails:", error);
     });
 }
 
 // Listen for messages from the popup to trigger authentication
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "authenticate") {
         authenticate().then(() => {
             sendResponse({ status: 'authenticated' });
@@ -65,18 +84,14 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }
 });
 
+// Load GAPI and initialize on extension installation
+chrome.runtime.onInstalled.addListener(() => {
+    loadGapi(() => {
+        initGapi();
+    });
+});
+
 // Periodic check for unread emails
 setInterval(() => {
     checkForNewEmails();
-}, 60000); // Every 60 seconds
-
-// Load the API and authenticate on extension installation
-chrome.runtime.onInstalled.addListener(function () {
-    gapi.load('client:auth2', function () {
-        gapi.auth2.init({
-            client_id: CLIENT_ID
-        }).then(function () {
-            console.log("Google API Client Loaded");
-        });
-    });
-});
+}, 60000); // Check every 60 seconds
